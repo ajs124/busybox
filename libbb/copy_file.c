@@ -341,12 +341,15 @@ int FAST_FUNC copy_file(const char *source, const char *dest, int flags)
 		}
 #endif
 #if ENABLE_FEATURE_CP_REFLINK
-# undef BTRFS_IOCTL_MAGIC
-# define BTRFS_IOCTL_MAGIC 0x94
-# undef BTRFS_IOC_CLONE
-# define BTRFS_IOC_CLONE _IOW (BTRFS_IOCTL_MAGIC, 9, int)
 		if (flags & FILEUTILS_REFLINK) {
-			retval = ioctl(dst_fd, BTRFS_IOC_CLONE, src_fd);
+			struct stat stat;
+			loff_t len, clen;
+			if (fstat(src_fd, &stat) == -1)
+				goto do_close;
+			len = stat.st_size;
+			clen = copy_file_range(src_fd, NULL, dst_fd, NULL, len, 0);
+			if (clen == len)
+				retval = 0;
 			if (retval == 0)
 				goto do_close;
 			/* reflink did not work */
